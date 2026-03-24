@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./data:/data
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - drug-discovery-net
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    env_file:
+      - .env
+    depends_on:
+      - backend
+    command: npm run dev
+    networks:
+      - drug-discovery-net
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: drugdiscovery
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - drug-discovery-net
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    networks:
+      - drug-discovery-net
+
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - drug-discovery-net
+
+  celery_worker:
+    build: ./backend
+    volumes:
+      - ./backend:/app
+      - ./data:/data
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - postgres
+    command: celery -A core.queue worker --loglevel=info
+    networks:
+      - drug-discovery-net
+
+  celery_flower:
+    build: ./backend
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - celery_worker
+    command: celery -A core.queue flower --port=5555
+    networks:
+      - drug-discovery-net
+
+networks:
+  drug-discovery-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data:

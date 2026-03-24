@@ -1,0 +1,54 @@
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
+from core.database import engine, Base
+from core.websocket import manager
+from api.routes import ai_query, targets, structures, design, molecules, docking, admet, pipeline, jobs
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    await engine.dispose()
+
+
+app = FastAPI(
+    title="Drug Discovery Platform",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(ai_query.router,   prefix="/api/ai",         tags=["AI Query"])
+app.include_router(targets.router,    prefix="/api/targets",    tags=["Targets"])
+app.include_router(structures.router, prefix="/api/structures", tags=["Structures"])
+app.include_router(design.router,     prefix="/api/design",     tags=["Design"])
+app.include_router(molecules.router,  prefix="/api/molecules",  tags=["Molecules"])
+app.include_router(docking.router,    prefix="/api/docking",    tags=["Docking"])
+app.include_router(admet.router,      prefix="/api/admet",      tags=["ADMET"])
+app.include_router(pipeline.router,   prefix="/api/pipeline",   tags=["Pipeline"])
+app.include_router(jobs.router,       prefix="/api/jobs",       tags=["Jobs"])
+
+
+@app.get("/health")
+async def health_check() -> dict:
+    return {"status": "ok", "version": "0.1.0"}
+
+
+@app.websocket("/ws/jobs/{job_id}")
+async def websocket_job(websocket: WebSocket, job_id: str):
+    await manager.connect(job_id, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except Exception:
+        manager.disconnect(job_id)
