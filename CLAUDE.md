@@ -16,13 +16,16 @@ End-to-end drug discovery simulation platform. Two user types:
 docker compose up
 
 # Backend dev (from backend/)
-uvicorn main:app --reload
+uv run uvicorn main:app --reload
 
 # Run all backend tests
-pytest backend/tests/
+uv run pytest backend/tests/
 
 # Run a single test file
-pytest backend/tests/test_docking.py -v
+uv run pytest backend/tests/test_docking.py -v
+
+# Install deps (from backend/)
+uv sync --extra dev
 
 # Frontend dev (from frontend/)
 npm run dev

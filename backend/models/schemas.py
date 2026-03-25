@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
-from pydantic import BaseModel
+from typing import Any, Literal
+from pydantic import BaseModel, Field
+
+from modules.base import ModuleInput
 
 
 # ---------------------------------------------------------------------------
@@ -54,25 +56,35 @@ class TargetLookupResponse(BaseModel):
 # AI query
 # ---------------------------------------------------------------------------
 
+class AIQueryInput(ModuleInput):
+    query: str
+    max_targets: int = 5
+
+
 class TargetSuggestion(BaseModel):
     protein_name: str
     gene_symbol: str
-    pdb_id: str | None = None
     uniprot_id: str | None = None
-    rationale: str
-    confidence: float
-    disease_relevance: str
+    full_name: str
+    confidence: Literal["high", "medium", "low"]
+    mechanism_summary: str
+    druggability_note: str
+    tags: list[str] = []
+    has_pdb_structure: bool
+    clinical_stage: Literal["approved", "phase3_trials", "preclinical", "unknown"]
+    difficulty: Literal["easy", "moderate", "difficult"]
 
 
 class AIQueryRequest(BaseModel):
-    disease_description: str
+    query: str
+    max_targets: int = Field(default=5, ge=1, le=8)
     user_id: str | None = None
-    max_suggestions: int = 5
 
 
 class AIQueryResponse(BaseModel):
-    job_id: str
-    status: str
+    targets: list[TargetSuggestion]
+    query_interpretation: str
+    confidence_explanation: str
 
 
 # ---------------------------------------------------------------------------

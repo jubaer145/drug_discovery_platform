@@ -2,13 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN pip install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-COPY requirements.txt .
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 
-RUN uv pip install -r requirements.txt --system
+COPY pyproject.toml uv.lock ./
+
+RUN uv sync --frozen --no-dev --no-editable
 
 COPY . .
+
+ENV PATH="/opt/venv/bin:$PATH"
 
 EXPOSE 8000
 
