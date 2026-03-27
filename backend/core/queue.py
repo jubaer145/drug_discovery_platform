@@ -110,7 +110,15 @@ def run_admet(job_id: str, smiles_list: list, run_tier2: bool = False) -> dict:
     return result.model_dump()
 
 
-@celery_app.task(name="tasks.run_pipeline")
-def run_pipeline(job_id: str, pipeline_config: dict) -> dict:
-    """Placeholder — implemented in Sprint 7."""
-    raise NotImplementedError("run_pipeline not yet implemented")
+@celery_app.task(name="tasks.run_pipeline_task", bind=True, max_retries=0, time_limit=7200)
+def run_pipeline_task(self, job_id: str, config_data: dict) -> dict:
+    """Run the full pipeline orchestrator."""
+    from core.pipeline import run_virtual_screening
+    from models.schemas import PipelineConfig
+
+    config = PipelineConfig(job_id=job_id, task="virtual_screening", **config_data)
+
+    if config.task == "virtual_screening":
+        return run_virtual_screening(job_id, config)
+
+    return {"error": f"Task type '{config.task}' not yet implemented"}

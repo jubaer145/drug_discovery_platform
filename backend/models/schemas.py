@@ -238,14 +238,43 @@ class MoleculeInput(BaseModel):
     use_zinc_subset: bool = False
 
 
+class PipelineConfig(ModuleInput):
+    # Target specification (one of):
+    target_pdb_id: str | None = None
+    target_uniprot_id: str | None = None
+    target_sequence: str | None = None
+    target_lookup_job_id: str | None = None
+
+    # Task type
+    task: Literal["virtual_screening", "protein_design", "denovo_generation"]
+
+    # Molecules
+    molecules: MoleculeInput | None = None
+
+    # Options
+    binding_site: dict[str, Any] | None = None
+    admet_filter_before_docking: bool = True
+    admet_min_qed: float = 0.4
+    docking_exhaustiveness: int = 8
+    max_molecules_to_dock: int = 500
+
+
 class PipelineRequest(BaseModel):
     target_pdb_path: str | None = None
+    target_pdb_id: str | None = None
+    target_uniprot_id: str | None = None
+    target_sequence: str | None = None
     target_query: str | None = None
-    task_type: str  # "virtual_screening" | "protein_design" | "de_novo_generation"
+    task_type: str = "virtual_screening"
     molecules: MoleculeInput | None = None
+    binding_site: dict[str, Any] | None = None
+    admet_filter_before_docking: bool = True
+    docking_exhaustiveness: int = 8
+    max_molecules_to_dock: int = 500
     user_id: str | None = None
 
 
 class PipelineResponse(BaseModel):
     job_id: str
     status: str
+    estimated_minutes: int | None = None
