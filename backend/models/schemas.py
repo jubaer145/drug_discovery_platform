@@ -42,9 +42,39 @@ class JobStatusUpdate(BaseModel):
 # Target lookup
 # ---------------------------------------------------------------------------
 
+class TargetLookupInput(ModuleInput):
+    query: str
+    query_type: Literal["pdb_id", "uniprot", "name", "auto"] = "auto"
+
+
 class TargetLookupRequest(BaseModel):
     query: str  # PDB ID, UniProt accession, or protein name
     user_id: str | None = None
+
+
+class PDBStructureInfo(BaseModel):
+    pdb_id: str
+    resolution: float | None = None
+    method: str | None = None
+    has_ligand: bool = False
+    ligand_name: str | None = None
+
+
+class TargetLookupResult(BaseModel):
+    protein_name: str
+    gene_symbol: str | None = None
+    uniprot_id: str | None = None
+    organism: str | None = None
+    sequence_length: int | None = None
+    sequence: str | None = None
+    function_summary: str | None = None
+    disease_associations: list[str] = []
+    pdb_structures: list[PDBStructureInfo] = []
+    best_pdb_id: str | None = None
+    total_pdb_count: int = 0
+    has_alphafold: bool = False
+    alphafold_url: str | None = None
+    multiple_candidates: list[dict[str, Any]] | None = None
 
 
 class TargetLookupResponse(BaseModel):

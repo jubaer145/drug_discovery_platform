@@ -1,8 +1,10 @@
+import PipelineWizard from '@/components/pipeline/PipelineWizard'
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-24">
-      <h1 className="text-4xl font-bold tracking-tight">Drug Discovery Platform</h1>
-      <p className="text-lg text-gray-500 dark:text-gray-400">Pipeline wizard — coming soon</p>
+    <main className="min-h-screen p-6 md:p-12 max-w-5xl mx-auto">
+      <h1 className="text-3xl font-bold tracking-tight mb-8">Drug Discovery Platform</h1>
+      <PipelineWizard />
     </main>
   )
 }

@@ -47,22 +47,27 @@ export interface TargetLookupResponse {
 export interface TargetSuggestion {
   protein_name: string
   gene_symbol: string
-  pdb_id: string | null
   uniprot_id: string | null
-  rationale: string
-  confidence: number
-  disease_relevance: string
+  full_name: string
+  confidence: 'high' | 'medium' | 'low'
+  mechanism_summary: string
+  druggability_note: string
+  tags: string[]
+  has_pdb_structure: boolean
+  clinical_stage: 'approved' | 'phase3_trials' | 'preclinical' | 'unknown'
+  difficulty: 'easy' | 'moderate' | 'difficult'
 }
 
 export interface AIQueryRequest {
-  disease_description: string
+  query: string
+  max_targets?: number
   user_id?: string
-  max_suggestions?: number
 }
 
 export interface AIQueryResponse {
-  job_id: string
-  status: string
+  targets: TargetSuggestion[]
+  query_interpretation: string
+  confidence_explanation: string
 }
 
 // ---------------------------------------------------------------------------

@@ -20,8 +20,14 @@ celery_app.conf.update(
 
 @celery_app.task(name="tasks.run_target_lookup")
 def run_target_lookup(job_id: str, query: str, user_id: str | None = None) -> dict:
-    """Placeholder — implemented in Sprint 1."""
-    raise NotImplementedError("run_target_lookup not yet implemented")
+    """Look up a protein target by PDB ID, UniProt accession, or name."""
+    from modules.target_lookup import TargetLookupModule
+    from models.schemas import TargetLookupInput
+
+    module = TargetLookupModule()
+    module_input = TargetLookupInput(job_id=job_id, user_id=user_id, query=query)
+    result = module.execute(module_input)
+    return result.model_dump()
 
 
 @celery_app.task(name="tasks.run_ai_query")
