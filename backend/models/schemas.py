@@ -143,17 +143,28 @@ class StructurePredictResponse(BaseModel):
 # Docking
 # ---------------------------------------------------------------------------
 
+class DockingInput(ModuleInput):
+    pdb_path: str
+    smiles_list: list[str]
+    binding_site: dict[str, float] | None = None
+    exhaustiveness: int = 8
+    num_poses: int = 3
+
+
 class DockingResult(BaseModel):
     smiles: str
-    binding_affinity: float  # kcal/mol
-    rmsd: float | None = None
     rank: int
+    best_affinity_kcal_mol: float
+    all_pose_affinities: list[float] = []
+    pose_pdbqt_path: str | None = None
+    docking_success: bool = True
 
 
 class DockingRequest(BaseModel):
     target_pdb_path: str
     molecules: list[str]  # SMILES strings
-    job_id: str | None = None
+    binding_site: dict[str, float] | None = None
+    exhaustiveness: int = 8
     user_id: str | None = None
 
 

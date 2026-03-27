@@ -48,10 +48,16 @@ def run_structure_prediction(self, job_id: str, sequence: str, sequence_name: st
     return result.model_dump()
 
 
-@celery_app.task(name="tasks.run_docking")
-def run_docking(job_id: str, target_pdb_path: str, smiles_list: list) -> dict:
-    """Placeholder — implemented in Sprint 4."""
-    raise NotImplementedError("run_docking not yet implemented")
+@celery_app.task(name="tasks.run_docking", bind=True, max_retries=0, time_limit=3600)
+def run_docking(self, job_id: str, input_data: dict) -> dict:
+    """Dock molecules against a protein structure using AutoDock Vina."""
+    from modules.docking import DockingModule
+    from models.schemas import DockingInput
+
+    module = DockingModule()
+    module_input = DockingInput(job_id=job_id, **input_data)
+    result = module.execute(module_input)
+    return result.model_dump()
 
 
 @celery_app.task(name="tasks.run_admet")
