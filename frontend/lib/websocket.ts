@@ -1,32 +1,74 @@
+'use client'
+
+import { useState, useEffect, useRef, useCallback } from 'react'
+import type { JobProgressUpdate } from './types'
+import { api } from './api'
+
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000'
 
-export interface JobProgressMessage {
-  job_id: string
-  status: string
-  progress?: number
-  message?: string
-  data?: Record<string, unknown>
-}
+export function useJobProgress(jobId: string | null) {
+  const [progress, setProgress] = useState<JobProgressUpdate | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
+  const wsRef = useRef<WebSocket | null>(null)
+  const retriesRef = useRef(0)
 
-export function createJobSocket(
-  jobId: string,
-  onMessage: (msg: JobProgressMessage) => void,
-  onError?: (err: Event) => void,
-): WebSocket {
-  const ws = new WebSocket(`${WS_URL}/ws/jobs/${jobId}`)
+  const connect = useCallback(() => {
+    if (!jobId) return
 
-  ws.onmessage = (event) => {
-    try {
-      const msg = JSON.parse(event.data as string) as JobProgressMessage
-      onMessage(msg)
-    } catch {
-      console.error('Failed to parse WebSocket message', event.data)
+    const ws = new WebSocket(`${WS_URL}/ws/jobs/${jobId}`)
+    wsRef.current = ws
+
+    ws.onopen = () => {
+      setIsConnected(true)
+      retriesRef.current = 0
     }
-  }
 
-  if (onError) {
-    ws.onerror = onError
-  }
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data) as JobProgressUpdate
+        setProgress(msg)
+      } catch {
+        // ignore parse errors
+      }
+    }
 
-  return ws
+    ws.onclose = () => {
+      setIsConnected(false)
+      if (retriesRef.current < 3) {
+        retriesRef.current++
+        setTimeout(connect, 2000)
+      }
+    }
+
+    ws.onerror = () => ws.close()
+  }, [jobId])
+
+  // Fallback polling
+  useEffect(() => {
+    if (!jobId || isConnected) return
+    const interval = setInterval(async () => {
+      try {
+        const job = await api.jobs.get(jobId)
+        setProgress({
+          job_id: jobId,
+          status: job.status,
+          step: '',
+          progress_pct: job.status === 'completed' ? 100 : job.status === 'running' ? 50 : 0,
+          message: job.status === 'completed' ? 'Complete' : 'Running...',
+          completed_steps: [],
+          current_step: '',
+          pending_steps: [],
+          timestamp: job.updated_at,
+        })
+      } catch { /* ignore */ }
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [jobId, isConnected])
+
+  useEffect(() => {
+    connect()
+    return () => wsRef.current?.close()
+  }, [connect])
+
+  return { progress, isConnected }
 }

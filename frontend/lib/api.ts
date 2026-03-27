@@ -51,6 +51,10 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    search: (q: string, limit = 5) =>
+      request<Array<{ uniprot_id: string; protein_name: string; gene_symbol: string; organism: string }>>(
+        `/api/targets/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+      ),
   },
 
   structures: {

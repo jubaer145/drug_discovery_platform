@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { TargetSuggestion } from '@/lib/types'
 import NaturalLanguageQuery from '@/components/target/NaturalLanguageQuery'
+import TechnicalSearch from '@/components/target/TechnicalSearch'
 
 type Tab = 'natural' | 'technical'
 
@@ -45,10 +46,7 @@ export default function Step1Target({ onTargetSelected }: Props) {
       {activeTab === 'natural' ? (
         <NaturalLanguageQuery onTargetSelected={onTargetSelected} />
       ) : (
-        <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-8 text-center text-sm text-gray-500">
-          <p className="font-medium">Technical Search</p>
-          <p className="mt-1">Search by PDB ID, UniProt accession, or protein name — coming in Sprint 2</p>
-        </div>
+        <TechnicalSearch onTargetSelected={onTargetSelected} />
       )}
     </div>
   )

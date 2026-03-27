@@ -14,16 +14,16 @@ export interface Job {
   updated_at: string
 }
 
-export interface JobCreate {
-  job_type: string
-  input_data: Record<string, unknown>
-  user_id?: string
-}
-
-export interface JobStatusUpdate {
+export interface JobProgressUpdate {
+  job_id: string
   status: string
-  output_data?: Record<string, unknown>
-  error?: string
+  step: string
+  progress_pct: number
+  message: string
+  completed_steps: string[]
+  current_step: string
+  pending_steps: string[]
+  timestamp: string
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ export interface AIQueryResponse {
 export interface StructurePredictRequest {
   sequence: string
   method?: 'esmfold' | 'alphafold'
-  job_id?: string
+  sequence_name?: string
   user_id?: string
 }
 
@@ -92,15 +92,18 @@ export interface StructurePredictResponse {
 
 export interface DockingResult {
   smiles: string
-  binding_affinity: number
-  rmsd: number | null
   rank: number
+  best_affinity_kcal_mol: number
+  all_pose_affinities: number[]
+  pose_pdbqt_path: string | null
+  docking_success: boolean
 }
 
 export interface DockingRequest {
   target_pdb_path: string
   molecules: string[]
-  job_id?: string
+  binding_site?: Record<string, number>
+  exhaustiveness?: number
   user_id?: string
 }
 
@@ -113,30 +116,40 @@ export interface DockingResponse {
 // ADMET
 // ---------------------------------------------------------------------------
 
+export interface AdmetTier1 {
+  mw: number
+  logp: number
+  hbd: number
+  hba: number
+  tpsa: number
+  rot_bonds: number
+  qed: number
+  lipinski_pass: boolean
+  lipinski_violations: string[]
+  has_pains: boolean
+  sa_score: number
+}
+
 export interface AdmetProfile {
   smiles: string
-  assay_type: string
-  mw: number | null
-  logp: number | null
-  hbd: number | null
-  hba: number | null
-  tpsa: number | null
-  lipinski_pass: boolean | null
-  bbb_penetrant: boolean | null
-  oral_bioavailability: number | null
-  toxicity_flags: string[]
+  overall: 'GREEN' | 'AMBER' | 'RED'
+  recommendation: 'recommended' | 'investigate' | 'not_recommended'
+  tier1: AdmetTier1
+  tier2: Record<string, unknown> | null
+  flags: Array<{ type: string; message: string }>
 }
 
 export interface AdmetRequest {
   smiles_list: string[]
-  assay_type?: string
-  job_id?: string
+  run_tier2?: boolean
   user_id?: string
 }
 
 export interface AdmetResponse {
   job_id: string
   status: string
+  total?: number
+  profiles?: AdmetProfile[]
 }
 
 // ---------------------------------------------------------------------------
@@ -151,13 +164,49 @@ export interface MoleculeInput {
 
 export interface PipelineRequest {
   target_pdb_path?: string
+  target_pdb_id?: string
+  target_uniprot_id?: string
+  target_sequence?: string
   target_query?: string
   task_type: 'virtual_screening' | 'protein_design' | 'de_novo_generation'
   molecules?: MoleculeInput
+  binding_site?: Record<string, number>
+  admet_filter_before_docking?: boolean
+  docking_exhaustiveness?: number
+  max_molecules_to_dock?: number
   user_id?: string
+}
+
+export interface RankedCandidate {
+  rank: number
+  smiles: string
+  composite_score: number
+  docking_affinity_kcal_mol: number
+  admet: AdmetProfile
+  overall_flag: 'GREEN' | 'AMBER' | 'RED'
+  pose_3d_path: string | null
+  next_step_suggestion?: string
+}
+
+export interface PipelineResult {
+  pipeline_summary: {
+    total_input_molecules: number
+    after_admet_prefilter: number
+    successfully_docked: number
+    top_candidates: number
+  }
+  target: Record<string, unknown>
+  ranked_candidates: RankedCandidate[]
+  structure_used: {
+    source: string
+    pdb_id?: string
+    resolution?: number
+  }
+  binding_site: Record<string, number> | null
 }
 
 export interface PipelineResponse {
   job_id: string
   status: string
+  estimated_minutes?: number
 }
