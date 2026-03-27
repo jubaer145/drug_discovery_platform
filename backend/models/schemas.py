@@ -121,10 +121,16 @@ class AIQueryResponse(BaseModel):
 # Structure prediction
 # ---------------------------------------------------------------------------
 
+class StructurePredInput(ModuleInput):
+    sequence: str
+    sequence_name: str = ""
+    force_predict: bool = False
+
+
 class StructurePredictRequest(BaseModel):
     sequence: str
     method: str = "esmfold"  # "esmfold" | "alphafold"
-    job_id: str | None = None
+    sequence_name: str = ""
     user_id: str | None = None
 
 

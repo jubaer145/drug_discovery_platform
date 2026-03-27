@@ -36,10 +36,16 @@ def run_ai_query(job_id: str, disease_description: str, user_id: str | None = No
     raise NotImplementedError("run_ai_query not yet implemented")
 
 
-@celery_app.task(name="tasks.run_structure_prediction")
-def run_structure_prediction(job_id: str, sequence: str, method: str = "esmfold") -> dict:
-    """Placeholder — implemented in Sprint 3."""
-    raise NotImplementedError("run_structure_prediction not yet implemented")
+@celery_app.task(name="tasks.run_structure_prediction", bind=True, max_retries=1, time_limit=300)
+def run_structure_prediction(self, job_id: str, sequence: str, sequence_name: str = "") -> dict:
+    """Predict 3D protein structure via ESMFold API."""
+    from modules.structure_pred import StructurePredModule
+    from models.schemas import StructurePredInput
+
+    module = StructurePredModule()
+    module_input = StructurePredInput(job_id=job_id, sequence=sequence, sequence_name=sequence_name)
+    result = module.execute(module_input)
+    return result.model_dump()
 
 
 @celery_app.task(name="tasks.run_docking")
