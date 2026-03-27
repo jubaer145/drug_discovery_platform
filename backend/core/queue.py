@@ -61,9 +61,15 @@ def run_docking(self, job_id: str, input_data: dict) -> dict:
 
 
 @celery_app.task(name="tasks.run_admet")
-def run_admet(job_id: str, smiles_list: list) -> dict:
-    """Placeholder — implemented in Sprint 5."""
-    raise NotImplementedError("run_admet not yet implemented")
+def run_admet(job_id: str, smiles_list: list, run_tier2: bool = False) -> dict:
+    """Predict ADMET properties for a list of SMILES."""
+    from modules.admet import AdmetModule
+    from models.schemas import AdmetInput
+
+    module = AdmetModule()
+    module_input = AdmetInput(job_id=job_id, smiles_list=smiles_list, run_tier2=run_tier2)
+    result = module.execute(module_input)
+    return result.model_dump()
 
 
 @celery_app.task(name="tasks.run_pipeline")

@@ -177,24 +177,37 @@ class DockingResponse(BaseModel):
 # ADMET
 # ---------------------------------------------------------------------------
 
+class AdmetInput(ModuleInput):
+    smiles_list: list[str]
+    run_tier2: bool = True
+
+
+class AdmetTier1(BaseModel):
+    mw: float
+    logp: float
+    hbd: int
+    hba: int
+    tpsa: float
+    rot_bonds: int
+    qed: float
+    lipinski_pass: bool
+    lipinski_violations: list[str] = []
+    has_pains: bool
+    sa_score: float
+
+
 class AdmetProfile(BaseModel):
     smiles: str
-    assay_type: str = "admet"
-    mw: float | None = None
-    logp: float | None = None
-    hbd: int | None = None   # H-bond donors
-    hba: int | None = None   # H-bond acceptors
-    tpsa: float | None = None
-    lipinski_pass: bool | None = None
-    bbb_penetrant: bool | None = None
-    oral_bioavailability: float | None = None
-    toxicity_flags: list[str] = []
+    overall: Literal["GREEN", "AMBER", "RED"]
+    recommendation: Literal["recommended", "investigate", "not_recommended"]
+    tier1: AdmetTier1
+    tier2: dict[str, Any] | None = None
+    flags: list[dict[str, str]] = []
 
 
 class AdmetRequest(BaseModel):
     smiles_list: list[str]
-    assay_type: str = "admet"
-    job_id: str | None = None
+    run_tier2: bool = False
     user_id: str | None = None
 
 
