@@ -1,8 +1,9 @@
+import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from core.database import engine, Base
-from core.websocket import manager
+from core.websocket import manager, subscribe_to_job_progress
 from api.routes import ai_query, targets, structures, design, molecules, docking, admet, pipeline, jobs
 
 
@@ -47,8 +48,15 @@ async def health_check() -> dict:
 @app.websocket("/ws/jobs/{job_id}")
 async def websocket_job(websocket: WebSocket, job_id: str):
     await manager.connect(job_id, websocket)
+    # Start Redis subscriber in background to forward progress updates
+    sub_task = asyncio.create_task(subscribe_to_job_progress(job_id, websocket))
     try:
         while True:
             await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
     except Exception:
-        manager.disconnect(job_id)
+        pass
+    finally:
+        sub_task.cancel()
+        manager.disconnect(job_id, websocket)

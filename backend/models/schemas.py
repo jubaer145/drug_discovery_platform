@@ -32,6 +32,18 @@ class JobRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class JobProgressUpdate(BaseModel):
+    job_id: str
+    status: str
+    step: str
+    progress_pct: int = 0
+    message: str = ""
+    completed_steps: list[str] = []
+    current_step: str = ""
+    pending_steps: list[str] = []
+    timestamp: datetime | None = None
+
+
 class JobStatusUpdate(BaseModel):
     status: str
     output_data: dict[str, Any] | None = None
