@@ -35,6 +35,8 @@ def ensure_buckets() -> None:
 def upload_file(bucket: str, key: str, data: bytes, content_type: str = "application/octet-stream") -> str:
     """Upload bytes to MinIO and return the object path."""
     client = _get_client()
+    if not client.bucket_exists(bucket):
+        client.make_bucket(bucket)
     client.put_object(
         bucket,
         key,

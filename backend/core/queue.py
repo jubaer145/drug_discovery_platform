@@ -116,7 +116,7 @@ def run_pipeline_task(self, job_id: str, config_data: dict) -> dict:
     from core.pipeline import run_virtual_screening
     from models.schemas import PipelineConfig
 
-    config = PipelineConfig(job_id=job_id, task="virtual_screening", **config_data)
+    config = PipelineConfig(job_id=job_id, **config_data)
 
     if config.task == "virtual_screening":
         return run_virtual_screening(job_id, config)

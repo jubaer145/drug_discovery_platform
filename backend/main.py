@@ -11,6 +11,12 @@ from api.routes import ai_query, targets, structures, design, molecules, docking
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    # Create MinIO buckets
+    try:
+        from core.storage import ensure_buckets
+        ensure_buckets()
+    except Exception:
+        pass  # MinIO may not be available in test environment
     yield
     await engine.dispose()
 
