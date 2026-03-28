@@ -86,9 +86,17 @@ export default function Step4Running({ jobId, onComplete }: Props) {
         Elapsed: {mins}:{secs.toString().padStart(2, '0')}
       </p>
 
+      {elapsed > 3600 && (
+        <div className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-4 text-sm text-amber-700 dark:text-amber-300">
+          Pipeline has been running for over 60 minutes. Large molecule libraries may take longer.
+          If this persists, the job may have timed out.
+        </div>
+      )}
+
       {progress?.status === 'failed' && (
-        <div className="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-4 text-sm text-red-700 dark:text-red-300">
-          Pipeline failed: {progress.message}
+        <div className="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-4 text-sm text-red-700 dark:text-red-300 space-y-2">
+          <p className="font-medium">Pipeline failed at: {STEP_LABELS[progress.current_step] || progress.current_step || 'unknown step'}</p>
+          <p>{progress.message}</p>
         </div>
       )}
     </div>

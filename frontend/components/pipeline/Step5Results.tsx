@@ -25,9 +25,42 @@ export default function Step5Results({ jobId, onViewPose }: Props) {
     }).catch(() => setLoading(false))
   }, [jobId])
 
-  if (loading) return <div className="text-center py-12 text-gray-400">Loading results...</div>
+  if (loading) {
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="grid grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-lg bg-gray-200 dark:bg-gray-800 h-16" />
+          ))}
+        </div>
+        <div className="rounded-lg bg-gray-200 dark:bg-gray-800 h-64" />
+      </div>
+    )
+  }
+
   if (!result || !result.pipeline_summary) {
-    return <div className="text-center py-12 text-gray-400">No results available</div>
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+        <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
+          <svg className="h-8 w-8 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+          </svg>
+        </div>
+        <h2 className="text-lg font-medium">No docking results</h2>
+        <p className="text-sm text-gray-500 max-w-md">
+          No molecules achieved sufficient binding affinity. This can happen when docking tools
+          are not available or all molecules were filtered out.
+        </p>
+        <div className="text-sm text-gray-400 space-y-1">
+          <p>Try:</p>
+          <ul className="list-disc list-inside">
+            <li>Using broader ADMET filters</li>
+            <li>Adding more diverse molecules</li>
+            <li>Selecting a different target binding region</li>
+          </ul>
+        </div>
+      </div>
+    )
   }
 
   const summary = result.pipeline_summary

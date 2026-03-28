@@ -1,10 +1,19 @@
 import asyncio
+import logging
+import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from core.database import engine, Base
 from core.websocket import manager, subscribe_to_job_progress
 from api.routes import ai_query, targets, structures, design, molecules, docking, admet, pipeline, jobs
+
+# Structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"time":"%(asctime)s","level":"%(levelname)s","module":"%(name)s","message":"%(message)s"}',
+    stream=sys.stdout,
+)
 
 
 @asynccontextmanager
