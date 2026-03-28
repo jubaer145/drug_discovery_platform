@@ -24,6 +24,26 @@ def _progress(job_id: str, step: str, pct: int, msg: str, **kwargs):
     send_progress_update(job_id, step, pct, msg, **kwargs)
 
 
+def _update_job_in_db(job_id: str, status: str, output_data: dict | None = None, error: str | None = None):
+    """Update job status in DB (called from Celery workers). Uses Redis as fallback."""
+    import json
+    import logging
+    import redis as redis_lib
+    from core.config import settings
+
+    # Store results in Redis so the API can read them
+    try:
+        r = redis_lib.Redis.from_url(settings.redis_url)
+        job_result = {
+            "status": status,
+            "output_data": output_data,
+            "error": error,
+        }
+        r.set(f"job_result:{job_id}", json.dumps(job_result), ex=86400)  # 24h TTL
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Could not cache job {job_id} result: {e}")
+
+
 @celery_app.task(name="tasks.run_target_lookup")
 def run_target_lookup(job_id: str, query: str, user_id: str | None = None) -> dict:
     """Look up a protein target by PDB ID, UniProt accession, or name."""
@@ -116,9 +136,19 @@ def run_pipeline_task(self, job_id: str, config_data: dict) -> dict:
     from core.pipeline import run_virtual_screening
     from models.schemas import PipelineConfig
 
+    _update_job_in_db(job_id, "running")
+
     config = PipelineConfig(job_id=job_id, **config_data)
 
     if config.task == "virtual_screening":
-        return run_virtual_screening(job_id, config)
+        result = run_virtual_screening(job_id, config)
+    else:
+        result = {"error": f"Task type '{config.task}' not yet implemented"}
 
-    return {"error": f"Task type '{config.task}' not yet implemented"}
+    # Update job in DB with results
+    if result.get("error"):
+        _update_job_in_db(job_id, "failed", output_data=result, error=result["error"])
+    else:
+        _update_job_in_db(job_id, "completed", output_data=result)
+
+    return result

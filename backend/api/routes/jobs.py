@@ -26,6 +26,24 @@ async def get_job(
     job = result.scalar_one_or_none()
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    # If job is still pending/running, check Redis for cached result from Celery
+    if job.status in ("pending", "running"):
+        import json
+        import redis
+        from core.config import settings
+        try:
+            r = redis.Redis.from_url(settings.redis_url)
+            cached = r.get(f"job_result:{job_id}")
+            if cached:
+                data = json.loads(cached)
+                job.status = data["status"]
+                job.output_data = data.get("output_data")
+                job.error = data.get("error")
+                await db.commit()
+        except Exception:
+            pass
+
     return job
 
 

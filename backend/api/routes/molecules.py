@@ -7,9 +7,6 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from rdkit import Chem
-from rdkit.Chem import AllChem, Draw
-
 from api.deps import get_session
 
 router = APIRouter()
@@ -21,9 +18,11 @@ async def render_molecule(
     size: int = Query(default=200, ge=50, le=600),
 ) -> Response:
     """Render a 2D structure image from a SMILES string."""
+    from rdkit import Chem
+    from rdkit.Chem import Draw
+
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
-        # Return a placeholder image for invalid SMILES
         img = Draw.MolToImage(Chem.MolFromSmiles("C"), size=(size, size))
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -77,7 +76,9 @@ async def export_sdf(
     if not smiles_list:
         raise HTTPException(status_code=422, detail="No molecules to export")
 
-    writer = Chem.SDWriter(io.StringIO())
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+
     sdf_io = io.StringIO()
     w = Chem.SDWriter(sdf_io)
 
@@ -112,6 +113,8 @@ class ValidateRequest(BaseModel):
 @router.post("/validate")
 async def validate_smiles(request: ValidateRequest) -> list[dict]:
     """Validate a list of SMILES strings."""
+    from rdkit import Chem
+
     results = []
     for smi in request.smiles_list:
         smi = smi.strip()
