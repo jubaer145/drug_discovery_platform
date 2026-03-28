@@ -45,6 +45,7 @@ def _progress(job_id: str, step: str, pct: int, msg: str, **kwargs):
 async def dispatch_pipeline(request: PipelineRequest, db: AsyncSession) -> PipelineResponse:
     """Dispatch pipeline as a Celery task. Returns immediately."""
     from core.queue import run_pipeline_task
+    from models.database import Job
 
     job_id = str(uuid.uuid4())
 
@@ -59,6 +60,16 @@ async def dispatch_pipeline(request: PipelineRequest, db: AsyncSession) -> Pipel
         "docking_exhaustiveness": request.docking_exhaustiveness,
         "max_molecules_to_dock": request.max_molecules_to_dock,
     }
+
+    # Create Job record in DB so polling works
+    job = Job(
+        id=uuid.UUID(job_id),
+        job_type="pipeline",
+        status="pending",
+        input_data=config_data,
+    )
+    db.add(job)
+    await db.commit()
 
     # Estimate time: ~1 min base + 0.5 min per 100 molecules
     mol_count = 0

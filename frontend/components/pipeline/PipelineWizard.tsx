@@ -40,7 +40,8 @@ export default function PipelineWizard() {
     setError(null)
     try {
       const res = await api.pipeline.run({
-        target_pdb_id: selectedTarget.uniprot_id || selectedTarget.gene_symbol,
+        target_uniprot_id: selectedTarget.uniprot_id || undefined,
+        target_pdb_id: selectedTarget.uniprot_id ? undefined : selectedTarget.gene_symbol,
         task_type: taskType as 'virtual_screening',
         molecules,
       })
