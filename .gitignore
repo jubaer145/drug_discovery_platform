@@ -4,4 +4,4 @@ node_modules/
 .next/
 *.pyc
 .venv/
-.pytest_cache/
+.pytest_cache/vendor/fpocket/

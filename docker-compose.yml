@@ -44,15 +44,11 @@ services:
       POSTGRES_PASSWORD: secret
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     networks:
       - drug-discovery-net
 
   redis:
     image: redis:7
-    ports:
-      - "6379:6379"
     networks:
       - drug-discovery-net
 

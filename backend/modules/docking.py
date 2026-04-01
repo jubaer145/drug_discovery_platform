@@ -153,7 +153,7 @@ class DockingModule(BaseModule):
         )
 
     def _detect_pocket(self, receptor_pdb: Path) -> dict | None:
-        """Run fpocket and parse the top druggable pocket."""
+        """Run fpocket and extract the top druggable pocket centroid."""
         try:
             subprocess.run(
                 ["fpocket", "-f", str(receptor_pdb)],
@@ -162,63 +162,95 @@ class DockingModule(BaseModule):
         except (subprocess.CalledProcessError, FileNotFoundError):
             return None
 
-        # fpocket creates a directory like receptor_out/
         out_dir = receptor_pdb.parent / f"{receptor_pdb.stem}_out"
         info_file = out_dir / f"{receptor_pdb.stem}_info.txt"
+        pockets_dir = out_dir / "pockets"
 
         if not info_file.exists():
-            # Try alternate path
-            pockets_dir = out_dir / "pockets"
-            if not pockets_dir.exists():
-                return None
-            info_file = out_dir / f"{receptor_pdb.stem}_info.txt"
-            if not info_file.exists():
-                return None
+            return None
 
-        return self._parse_fpocket_output(info_file)
+        # Parse info file to find best druggable pocket
+        best_pocket_idx = self._find_best_pocket(info_file)
+        if best_pocket_idx is None:
+            return None
 
-    def _parse_fpocket_output(self, info_file: Path) -> dict | None:
-        """Parse fpocket info file for the best druggable pocket."""
+        # Extract centroid from the pocket PDB file
+        pocket_pdb = pockets_dir / f"pocket{best_pocket_idx}_atm.pdb"
+        if not pocket_pdb.exists():
+            return None
+
+        return self._compute_pocket_centroid(pocket_pdb)
+
+    def _find_best_pocket(self, info_file: Path) -> int | None:
+        """Find the pocket index with the highest druggability score."""
         text = info_file.read_text()
-        pockets = []
+        best_idx = None
+        best_score = 0.0
+        current_idx = 0
 
-        # Parse pocket blocks
-        for block in re.split(r"Pocket\s+\d+\s*:", text):
-            center = {}
+        for block in re.split(r"Pocket\s+(\d+)\s*:", text):
+            # Try to parse as pocket index
+            try:
+                current_idx = int(block.strip())
+                continue
+            except ValueError:
+                pass
+
             druggability = 0.0
             volume = 0.0
-
             for line in block.splitlines():
                 line = line.strip()
-                if "Score" in line and "Druggability" in line:
+                if "Druggability Score" in line:
                     match = re.search(r"[\d.]+", line.split(":")[-1])
                     if match:
                         druggability = float(match.group())
-                elif "Volume" in line:
+                elif line.startswith("Volume") and "score" not in line.lower():
                     match = re.search(r"[\d.]+", line.split(":")[-1])
                     if match:
                         volume = float(match.group())
-                elif "Center" in line:
-                    nums = re.findall(r"-?[\d.]+", line)
-                    if len(nums) >= 3:
-                        center = {
-                            "center_x": float(nums[0]),
-                            "center_y": float(nums[1]),
-                            "center_z": float(nums[2]),
-                        }
 
-            if center and druggability > 0.5 and volume > 200:
-                pockets.append({
-                    **center,
-                    "size_x": 20.0, "size_y": 20.0, "size_z": 20.0,
-                    "_druggability": druggability,
-                })
+            if druggability > best_score and volume > 100:
+                best_score = druggability
+                best_idx = current_idx
 
-        if not pockets:
-            return None
+        return best_idx if best_score > 0.3 else None
 
-        best = max(pockets, key=lambda p: p.pop("_druggability"))
-        return best
+    def _compute_pocket_centroid(self, pocket_pdb: Path) -> dict:
+        """Compute the centroid of ATOM records in a pocket PDB file."""
+        xs, ys, zs = [], [], []
+        for line in pocket_pdb.read_text().splitlines():
+            if line.startswith("ATOM") or line.startswith("HETATM"):
+                try:
+                    x = float(line[30:38])
+                    y = float(line[38:46])
+                    z = float(line[46:54])
+                    xs.append(x)
+                    ys.append(y)
+                    zs.append(z)
+                except (ValueError, IndexError):
+                    continue
+
+        if not xs:
+            return {"center_x": 0, "center_y": 0, "center_z": 0,
+                    "size_x": 20.0, "size_y": 20.0, "size_z": 20.0}
+
+        cx = sum(xs) / len(xs)
+        cy = sum(ys) / len(ys)
+        cz = sum(zs) / len(zs)
+
+        # Size = range + 10 Å padding, minimum 20 Å
+        sx = max(20.0, (max(xs) - min(xs)) + 10.0)
+        sy = max(20.0, (max(ys) - min(ys)) + 10.0)
+        sz = max(20.0, (max(zs) - min(zs)) + 10.0)
+
+        return {
+            "center_x": round(cx, 2),
+            "center_y": round(cy, 2),
+            "center_z": round(cz, 2),
+            "size_x": round(sx, 2),
+            "size_y": round(sy, 2),
+            "size_z": round(sz, 2),
+        }
 
     def _dock_single_ligand(
         self, smiles: str, idx: int, receptor_pdbqt: Path,
@@ -264,7 +296,6 @@ class DockingModule(BaseModule):
 
         # Run Vina
         output_path = ligand_dir / "poses.pdbqt"
-        log_path = ligand_dir / "vina.log"
         cmd = [
             "vina",
             "--receptor", str(receptor_pdbqt),
@@ -278,16 +309,17 @@ class DockingModule(BaseModule):
             "--exhaustiveness", str(exhaustiveness),
             "--num_modes", str(num_poses),
             "--out", str(output_path),
-            "--log", str(log_path),
         ]
 
         try:
-            subprocess.run(cmd, check=True, capture_output=True, timeout=600)
-        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            if result.returncode != 0:
+                return None
+        except (FileNotFoundError, subprocess.TimeoutExpired):
             return None
 
-        # Parse Vina log for affinities
-        affinities = self._parse_vina_log(log_path)
+        # Parse affinities from stdout (Vina 1.2.5 outputs results to stdout)
+        affinities = self._parse_vina_output(result.stdout)
         if not affinities:
             return None
 
@@ -301,14 +333,11 @@ class DockingModule(BaseModule):
             "_local_pose_path": str(output_path),
         }
 
-    def _parse_vina_log(self, log_path: Path) -> list[float]:
-        """Parse AutoDock Vina log file for binding affinities."""
-        if not log_path.exists():
-            return []
-
+    def _parse_vina_output(self, text: str) -> list[float]:
+        """Parse AutoDock Vina stdout for binding affinities."""
         affinities = []
         in_results = False
-        for line in log_path.read_text().splitlines():
+        for line in text.splitlines():
             if "-----+------------" in line:
                 in_results = True
                 continue
@@ -322,3 +351,9 @@ class DockingModule(BaseModule):
                 else:
                     break
         return affinities
+
+    def _parse_vina_log(self, log_path: Path) -> list[float]:
+        """Parse AutoDock Vina log file for binding affinities (legacy)."""
+        if not log_path.exists():
+            return []
+        return self._parse_vina_output(log_path.read_text())
