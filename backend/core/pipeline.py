@@ -13,12 +13,15 @@ from core.websocket import send_progress_update
 from models.schemas import (
     PipelineConfig, PipelineRequest, PipelineResponse,
     TargetLookupInput, StructurePredInput, DockingInput, AdmetInput,
+    ProteinDesignInput, MolGenerationInput,
     MoleculeInput,
 )
 from modules.target_lookup import TargetLookupModule
 from modules.structure_pred import StructurePredModule
 from modules.docking import DockingModule
 from modules.admet import AdmetModule
+from modules.protein_design import ProteinDesignModule
+from modules.mol_generation import MolGenerationModule
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +62,8 @@ async def dispatch_pipeline(request: PipelineRequest, db: AsyncSession) -> Pipel
         "admet_filter_before_docking": request.admet_filter_before_docking,
         "docking_exhaustiveness": request.docking_exhaustiveness,
         "max_molecules_to_dock": request.max_molecules_to_dock,
+        "num_designs": request.num_designs,
+        "num_molecules": request.num_molecules,
     }
 
     # Create Job record in DB so polling works
@@ -363,3 +368,115 @@ def _fail(job_id: str, message: str) -> dict:
     """Return a failed pipeline result."""
     _progress(job_id, "ranking", 100, message, status="failed")
     return {"error": message, "pipeline_summary": None, "ranked_candidates": []}
+
+
+# ------------------------------------------------------------------
+# Protein Design workflow
+# ------------------------------------------------------------------
+
+def run_protein_design(job_id: str, config: PipelineConfig) -> dict:
+    """Execute the protein design pipeline."""
+    _progress(job_id, "target_resolution", 5, "Resolving target...")
+    target_info, pdb_path = _resolve_target(job_id, config)
+    if pdb_path is None:
+        return _fail(job_id, "Could not resolve target structure")
+    _progress(job_id, "target_resolution", 20, "Target resolved")
+
+    _progress(job_id, "protein_design", 30, f"Designing {config.num_designs} protein binders...")
+    module = ProteinDesignModule()
+    result = module.execute(ProteinDesignInput(
+        job_id=f"{job_id}_design",
+        pdb_path=pdb_path,
+        num_designs=config.num_designs,
+        target_name=target_info.get("protein_name", ""),
+    ))
+
+    if result.status != "completed":
+        return _fail(job_id, f"Protein design failed: {result.errors}")
+
+    _progress(job_id, "protein_design", 100, "Design complete", status="completed")
+
+    designs = result.data.get("designs", [])
+    return {
+        "pipeline_type": "protein_design",
+        "pipeline_summary": {
+            "num_designs": len(designs),
+            "avg_plddt": round(sum(d.get("predicted_plddt", 0) for d in designs) / max(len(designs), 1), 1),
+        },
+        "target": target_info,
+        "designs": designs,
+        "design_strategy": result.data.get("design_strategy", ""),
+        "target_analysis": result.data.get("target_analysis", ""),
+    }
+
+
+# ------------------------------------------------------------------
+# De Novo Generation workflow
+# ------------------------------------------------------------------
+
+def run_denovo_generation(job_id: str, config: PipelineConfig) -> dict:
+    """Execute the de novo molecule generation pipeline."""
+    _progress(job_id, "target_resolution", 5, "Resolving target...")
+    target_info, pdb_path = _resolve_target(job_id, config)
+    if pdb_path is None:
+        return _fail(job_id, "Could not resolve target structure")
+    _progress(job_id, "target_resolution", 20, "Target resolved")
+
+    _progress(job_id, "molecule_generation", 30, f"Generating {config.num_molecules} novel molecules...")
+    module = MolGenerationModule()
+    result = module.execute(MolGenerationInput(
+        job_id=f"{job_id}_generate",
+        target_name=target_info.get("protein_name", ""),
+        target_info=f"Gene: {target_info.get('gene_symbol', '')}, "
+                    f"Function: {target_info.get('function_summary', '')[:200]}",
+        num_molecules=config.num_molecules,
+    ))
+
+    if result.status != "completed":
+        return _fail(job_id, f"Molecule generation failed: {result.errors}")
+
+    molecules = result.data.get("molecules", [])
+    _progress(job_id, "admet_scoring", 70, f"Running ADMET on {len(molecules)} generated molecules...")
+
+    # Run ADMET on generated molecules
+    smiles_list = [m["smiles"] for m in molecules if m.get("smiles")]
+    admet_profiles = {}
+    if smiles_list:
+        admet_module = AdmetModule()
+        admet_result = admet_module.execute(AdmetInput(
+            job_id=f"{job_id}_admet", smiles_list=smiles_list,
+        ))
+        if admet_result.status == "completed":
+            admet_profiles = {p["smiles"]: p for p in admet_result.data.get("profiles", [])}
+
+    # Merge ADMET into molecules
+    ranked = []
+    for i, mol in enumerate(molecules):
+        smi = mol.get("smiles", "")
+        admet = admet_profiles.get(smi, {})
+        ranked.append({
+            "rank": i + 1,
+            "smiles": smi,
+            "name": mol.get("name", f"Generated_{i+1}"),
+            "binding_rationale": mol.get("binding_rationale", ""),
+            "novelty_note": mol.get("novelty_note", ""),
+            "admet": admet,
+            "overall_flag": admet.get("overall", "AMBER"),
+            "composite_score": admet.get("tier1", {}).get("qed", 0.5),
+        })
+
+    _progress(job_id, "admet_scoring", 100, "Generation complete", status="completed")
+
+    return {
+        "pipeline_type": "denovo_generation",
+        "pipeline_summary": {
+            "total_generated": result.data.get("total_generated", 0),
+            "invalid_count": result.data.get("invalid_count", 0),
+            "green_count": sum(1 for r in ranked if r["overall_flag"] == "GREEN"),
+            "amber_count": sum(1 for r in ranked if r["overall_flag"] == "AMBER"),
+            "red_count": sum(1 for r in ranked if r["overall_flag"] == "RED"),
+        },
+        "target": target_info,
+        "ranked_candidates": ranked,
+        "design_strategy": result.data.get("design_strategy", ""),
+    }

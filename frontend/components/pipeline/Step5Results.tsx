@@ -46,37 +46,79 @@ export default function Step5Results({ jobId, onViewPose }: Props) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
           </svg>
         </div>
-        <h2 className="text-lg font-medium">No docking results</h2>
-        <p className="text-sm text-gray-500 max-w-md">
-          No molecules achieved sufficient binding affinity. This can happen when docking tools
-          are not available or all molecules were filtered out.
-        </p>
-        <div className="text-sm text-gray-400 space-y-1">
-          <p>Try:</p>
-          <ul className="list-disc list-inside">
-            <li>Using broader ADMET filters</li>
-            <li>Adding more diverse molecules</li>
-            <li>Selecting a different target binding region</li>
-          </ul>
+        <h2 className="text-lg font-medium">No results available</h2>
+        <p className="text-sm text-gray-500 max-w-md">The pipeline completed but produced no results.</p>
+      </div>
+    )
+  }
+
+  const summary = result.pipeline_summary as unknown as Record<string, number>
+  const rawResult = result as unknown as Record<string, unknown>
+  const pipelineType = rawResult.pipeline_type as string | undefined
+  const designs = (rawResult.designs || []) as Array<Record<string, unknown>>
+
+  // Protein Design results
+  if (pipelineType === 'protein_design' && designs.length > 0) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-center">
+            <p className="text-2xl font-bold">{summary.num_designs || designs.length}</p>
+            <p className="text-xs text-gray-500">Designs</p>
+          </div>
+          <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-center">
+            <p className="text-2xl font-bold">{summary.avg_plddt || '—'}</p>
+            <p className="text-xs text-gray-500">Avg pLDDT</p>
+          </div>
+        </div>
+        {rawResult.design_strategy ? (
+          <div className="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-4">
+            <p className="text-sm text-blue-800 dark:text-blue-200">{String(rawResult.design_strategy)}</p>
+          </div>
+        ) : null}
+        <div className="space-y-3">
+          {designs.map((d, i) => (
+            <div key={i} className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">{String(d.name || `Design ${i + 1}`)}</h3>
+                <span className="text-sm font-medium text-blue-600">pLDDT: {String(d.predicted_plddt ?? '—')}</span>
+              </div>
+              <code className="block text-xs font-mono bg-gray-50 dark:bg-gray-900 p-2 rounded overflow-x-auto break-all">
+                {String(d.sequence || '')}
+              </code>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{String(d.binding_strategy || '')}</p>
+              <p className="text-xs text-gray-500">{String(d.key_residues || '')}</p>
+              {d.estimated_affinity_nm ? (
+                <p className="text-xs text-green-600">Est. affinity: {String(d.estimated_affinity_nm)} nM</p>
+              ) : null}
+            </div>
+          ))}
         </div>
       </div>
     )
   }
 
-  const summary = result.pipeline_summary
+  // De novo / Virtual screening summary stats
+  const summaryCards = pipelineType === 'denovo_generation'
+    ? [
+        { label: 'Generated', value: summary.total_generated },
+        { label: 'Invalid', value: summary.invalid_count },
+        { label: 'GREEN', value: summary.green_count },
+        { label: 'RED', value: summary.red_count },
+      ]
+    : [
+        { label: 'Input', value: summary.total_input_molecules },
+        { label: 'After ADMET filter', value: summary.after_admet_prefilter },
+        { label: 'Docked', value: summary.successfully_docked },
+        { label: 'Top candidates', value: summary.top_candidates },
+      ]
 
   return (
     <div className="space-y-6">
-      {/* Summary stats */}
       <div className="grid grid-cols-4 gap-3">
-        {[
-          { label: 'Input', value: summary.total_input_molecules },
-          { label: 'After ADMET filter', value: summary.after_admet_prefilter },
-          { label: 'Docked', value: summary.successfully_docked },
-          { label: 'Top candidates', value: summary.top_candidates },
-        ].map(({ label, value }) => (
+        {summaryCards.map(({ label, value }) => (
           <div key={label} className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-center">
-            <p className="text-2xl font-bold">{value}</p>
+            <p className="text-2xl font-bold">{value ?? '—'}</p>
             <p className="text-xs text-gray-500">{label}</p>
           </div>
         ))}

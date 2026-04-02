@@ -133,7 +133,7 @@ def run_admet(job_id: str, smiles_list: list, run_tier2: bool = False) -> dict:
 @celery_app.task(name="tasks.run_pipeline_task", bind=True, max_retries=0, time_limit=7200)
 def run_pipeline_task(self, job_id: str, config_data: dict) -> dict:
     """Run the full pipeline orchestrator."""
-    from core.pipeline import run_virtual_screening
+    from core.pipeline import run_virtual_screening, run_protein_design, run_denovo_generation
     from models.schemas import PipelineConfig
 
     _update_job_in_db(job_id, "running")
@@ -142,6 +142,10 @@ def run_pipeline_task(self, job_id: str, config_data: dict) -> dict:
 
     if config.task == "virtual_screening":
         result = run_virtual_screening(job_id, config)
+    elif config.task == "protein_design":
+        result = run_protein_design(job_id, config)
+    elif config.task == "denovo_generation":
+        result = run_denovo_generation(job_id, config)
     else:
         result = {"error": f"Task type '{config.task}' not yet implemented"}
 

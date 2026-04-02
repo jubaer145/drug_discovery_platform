@@ -42,8 +42,8 @@ export default function PipelineWizard() {
       const res = await api.pipeline.run({
         target_uniprot_id: selectedTarget.uniprot_id || undefined,
         target_pdb_id: selectedTarget.uniprot_id ? undefined : selectedTarget.gene_symbol,
-        task_type: taskType as 'virtual_screening',
-        molecules,
+        task_type: taskType as 'virtual_screening' | 'protein_design' | 'de_novo_generation',
+        molecules: taskType === 'virtual_screening' ? molecules : undefined,
       })
       setJobId(res.job_id)
       nextStep() // go to step 4

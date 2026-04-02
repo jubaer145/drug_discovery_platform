@@ -229,6 +229,27 @@ class AdmetResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Protein Design
+# ---------------------------------------------------------------------------
+
+class ProteinDesignInput(ModuleInput):
+    pdb_path: str
+    num_designs: int = 8
+    target_name: str = ""
+
+
+# ---------------------------------------------------------------------------
+# De Novo Molecule Generation
+# ---------------------------------------------------------------------------
+
+class MolGenerationInput(ModuleInput):
+    target_name: str = ""
+    target_info: str = ""
+    num_molecules: int = 50
+    property_constraints: dict[str, Any] | None = None
+
+
+# ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
 
@@ -258,6 +279,12 @@ class PipelineConfig(ModuleInput):
     docking_exhaustiveness: int = 8
     max_molecules_to_dock: int = 500
 
+    # Protein design options
+    num_designs: int = 8
+
+    # De novo generation options
+    num_molecules: int = 50
+
 
 class PipelineRequest(BaseModel):
     target_pdb_path: str | None = None
@@ -271,6 +298,8 @@ class PipelineRequest(BaseModel):
     admet_filter_before_docking: bool = True
     docking_exhaustiveness: int = 8
     max_molecules_to_dock: int = 500
+    num_designs: int = 8
+    num_molecules: int = 50
     user_id: str | None = None
 
 

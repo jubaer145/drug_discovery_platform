@@ -174,6 +174,8 @@ export interface PipelineRequest {
   admet_filter_before_docking?: boolean
   docking_exhaustiveness?: number
   max_molecules_to_dock?: number
+  num_designs?: number
+  num_molecules?: number
   user_id?: string
 }
 
