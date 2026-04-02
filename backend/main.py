@@ -60,6 +60,25 @@ async def health_check() -> dict:
     return {"status": "ok", "version": "0.1.0"}
 
 
+@app.get("/api/files/{bucket}/{path:path}")
+async def download_file_endpoint(bucket: str, path: str):
+    """Generic file download from MinIO storage."""
+    from fastapi.responses import Response
+    from core.storage import download_file, file_exists
+    if not file_exists(bucket, path):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="File not found")
+    data = download_file(bucket, path)
+    content_type = "application/octet-stream"
+    if path.endswith(".pdb"):
+        content_type = "chemical/x-pdb"
+    elif path.endswith(".json"):
+        content_type = "application/json"
+    elif path.endswith(".sdf"):
+        content_type = "chemical/x-mdl-sdfile"
+    return Response(content=data, media_type=content_type)
+
+
 @app.websocket("/ws/jobs/{job_id}")
 async def websocket_job(websocket: WebSocket, job_id: str):
     await manager.connect(job_id, websocket)
