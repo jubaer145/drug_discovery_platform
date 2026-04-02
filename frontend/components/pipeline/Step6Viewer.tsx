@@ -83,8 +83,8 @@ export default function Step6Viewer({ jobId, pdbPath }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div ref={viewerRef} className="w-full h-[500px] bg-gray-900" />
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden" style={{ position: 'relative', width: '100%', height: '500px' }}>
+        <div ref={viewerRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
       </div>
       <div className="flex gap-3 text-xs text-gray-500">
         <span>Protein rendered as cartoon (spectrum coloring)</span>
