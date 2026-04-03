@@ -27,7 +27,7 @@ export default function ProteinDesignViewer({ jobId, sequence, designName }: Pro
   }, [])
 
   async function handlePredict() {
-    if (!viewerRef.current || !sequence) return
+    if (!sequence) return
     setLoading(true)
     setError(null)
 
@@ -53,11 +53,11 @@ export default function ProteinDesignViewer({ jobId, sequence, designName }: Pro
 
       const binderPdb = await esmResp.text()
 
-      // 3. Wait for 3Dmol to be available
+      // 3. Wait for 3Dmol and viewer div to be available
       const win = window as unknown as Record<string, unknown>
       const waitFor3Dmol = () => new Promise<unknown>((resolve) => {
         const check = setInterval(() => {
-          if (win.$3Dmol) { clearInterval(check); resolve(win.$3Dmol) }
+          if (win.$3Dmol && viewerRef.current) { clearInterval(check); resolve(win.$3Dmol) }
         }, 200)
       })
 
