@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import type { RankedCandidate, PipelineResult } from '@/lib/types'
+import ProteinDesignViewer from './ProteinDesignViewer'
 
 const FLAG_COLORS = { GREEN: 'bg-green-500', AMBER: 'bg-amber-500', RED: 'bg-red-500' }
 
@@ -91,6 +92,11 @@ export default function Step5Results({ jobId, onViewPose }: Props) {
               {d.estimated_affinity_nm ? (
                 <p className="text-xs text-green-600">Est. affinity: {String(d.estimated_affinity_nm)} nM</p>
               ) : null}
+              <ProteinDesignViewer
+                jobId={jobId}
+                sequence={String(d.sequence || '')}
+                designName={String(d.name || `Design ${i + 1}`)}
+              />
             </div>
           ))}
         </div>
