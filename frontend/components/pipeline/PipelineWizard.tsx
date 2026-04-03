@@ -102,7 +102,7 @@ export default function PipelineWizard() {
         {step === 1 && <Step1Target onTargetSelected={setSelectedTarget} />}
         {step === 2 && <Step2Task selectedTarget={selectedTarget} onTaskSelected={handleTaskSelected} />}
         {step === 3 && <Step3Structure selectedTarget={selectedTarget} onConfirm={handleConfirmPipeline} />}
-        {step === 4 && jobId && <Step4Running jobId={jobId} onComplete={handlePipelineComplete} />}
+        {step === 4 && jobId && <Step4Running jobId={jobId} taskType={taskType || undefined} onComplete={handlePipelineComplete} />}
         {step === 5 && jobId && <Step5Results jobId={jobId} onViewPose={handleViewPose} />}
         {step === 6 && jobId && <Step6Viewer jobId={jobId} pdbPath={viewCandidate?.pose_3d_path} />}
       </div>

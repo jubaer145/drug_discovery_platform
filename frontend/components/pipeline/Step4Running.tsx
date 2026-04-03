@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useJobProgress } from '@/lib/websocket'
+import { api } from '@/lib/api'
 
 const STEP_LABELS: Record<string, string> = {
   target_resolution: 'Resolving target',
@@ -10,16 +11,27 @@ const STEP_LABELS: Record<string, string> = {
   docking: 'Molecular docking',
   admet_tier2: 'ADMET analysis',
   ranking: 'Ranking candidates',
+  protein_design: 'Designing protein binders',
+  molecule_generation: 'Generating novel molecules',
+  admet_scoring: 'ADMET scoring',
+}
+
+const TASK_STEPS: Record<string, string[]> = {
+  virtual_screening: ['target_resolution', 'molecule_preparation', 'admet_prefilter', 'docking', 'admet_tier2', 'ranking'],
+  protein_design: ['target_resolution', 'protein_design'],
+  denovo_generation: ['target_resolution', 'molecule_generation', 'admet_scoring'],
 }
 
 interface Props {
   jobId: string
+  taskType?: string
   onComplete: () => void
 }
 
-export default function Step4Running({ jobId, onComplete }: Props) {
+export default function Step4Running({ jobId, taskType, onComplete }: Props) {
   const { progress } = useJobProgress(jobId)
   const [elapsed, setElapsed] = useState(0)
+  const [completed, setCompleted] = useState(false)
 
   useEffect(() => {
     const start = Date.now()
@@ -27,15 +39,32 @@ export default function Step4Running({ jobId, onComplete }: Props) {
     return () => clearInterval(timer)
   }, [])
 
+  // Detect completion from WebSocket progress
   useEffect(() => {
-    if (progress?.status === 'completed' || progress?.status === 'failed') {
+    if (!completed && (progress?.status === 'completed' || progress?.status === 'failed')) {
+      setCompleted(true)
       onComplete()
     }
-  }, [progress?.status, onComplete])
+  }, [progress?.status, onComplete, completed])
+
+  // Fallback: poll job status every 5 seconds in case WebSocket doesn't work
+  useEffect(() => {
+    if (completed) return
+    const interval = setInterval(async () => {
+      try {
+        const job = await api.jobs.get(jobId)
+        if (job.status === 'completed' || job.status === 'failed') {
+          setCompleted(true)
+          onComplete()
+        }
+      } catch { /* ignore polling errors */ }
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [jobId, onComplete, completed])
 
   const pct = progress?.progress_pct ?? 0
-  const allSteps = ['target_resolution', 'molecule_preparation', 'admet_prefilter', 'docking', 'admet_tier2', 'ranking']
-  const completed = new Set(progress?.completed_steps ?? [])
+  const allSteps = TASK_STEPS[taskType || 'virtual_screening'] || TASK_STEPS.virtual_screening
+  const completedSteps = new Set(progress?.completed_steps ?? [])
   const current = progress?.current_step ?? ''
   const mins = Math.floor(elapsed / 60)
   const secs = elapsed % 60
@@ -57,7 +86,7 @@ export default function Step4Running({ jobId, onComplete }: Props) {
       {/* Step checklist */}
       <div className="space-y-2">
         {allSteps.map((step) => {
-          const isDone = completed.has(step)
+          const isDone = completedSteps.has(step)
           const isRunning = current === step && !isDone
           return (
             <div key={step} className="flex items-center gap-3 text-sm">
@@ -89,7 +118,6 @@ export default function Step4Running({ jobId, onComplete }: Props) {
       {elapsed > 3600 && (
         <div className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-4 text-sm text-amber-700 dark:text-amber-300">
           Pipeline has been running for over 60 minutes. Large molecule libraries may take longer.
-          If this persists, the job may have timed out.
         </div>
       )}
 
