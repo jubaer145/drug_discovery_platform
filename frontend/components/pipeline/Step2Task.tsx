@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { TargetSuggestion, MoleculeInput } from '@/lib/types'
 
-type TaskType = 'virtual_screening' | 'protein_design' | 'de_novo_generation'
+type TaskType = 'virtual_screening' | 'protein_design' | 'denovo_generation'
 
 interface Props {
   selectedTarget: TargetSuggestion | null
@@ -13,7 +13,7 @@ interface Props {
 const TASKS = [
   { id: 'virtual_screening' as TaskType, title: 'Virtual Screening', desc: 'Test molecules against this target', detail: 'Dock a library of molecules and rank by binding affinity + ADMET', available: true },
   { id: 'protein_design' as TaskType, title: 'Protein Design', desc: 'Design a novel protein binder with AI', detail: 'AI-powered protein sequence design for the target binding site', available: true },
-  { id: 'de_novo_generation' as TaskType, title: 'De Novo Generation', desc: 'Generate new molecules from scratch', detail: 'AI generates novel drug-like molecules targeting this protein', available: true },
+  { id: 'denovo_generation' as TaskType, title: 'De Novo Generation', desc: 'Generate new molecules from scratch', detail: 'AI generates novel drug-like molecules targeting this protein', available: true },
 ]
 
 export default function Step2Task({ selectedTarget, onTaskSelected }: Props) {
@@ -97,7 +97,7 @@ export default function Step2Task({ selectedTarget, onTaskSelected }: Props) {
       )}
 
       {/* De Novo Generation options */}
-      {selected === 'de_novo_generation' && (
+      {selected === 'denovo_generation' && (
         <div className="space-y-4 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <h4 className="font-medium">De Novo Generation Options</h4>
           <p className="text-sm text-gray-500">

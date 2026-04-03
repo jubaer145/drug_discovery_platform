@@ -168,7 +168,7 @@ export interface PipelineRequest {
   target_uniprot_id?: string
   target_sequence?: string
   target_query?: string
-  task_type: 'virtual_screening' | 'protein_design' | 'de_novo_generation'
+  task_type: 'virtual_screening' | 'protein_design' | 'denovo_generation'
   molecules?: MoleculeInput
   binding_site?: Record<string, number>
   admet_filter_before_docking?: boolean
